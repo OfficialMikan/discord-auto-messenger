@@ -82,22 +82,18 @@ def main():
     print("Running in GUI mode...")
     try:
         print("Importing GUI modules...")
+        from PyQt6.QtWidgets import QApplication
         from auto_messenger.gui.app import AutoMessengerGUI
-        from ttkthemes import ThemedTk
         print("GUI modules imported successfully")
         
-        print("Creating GUI window...")
-        root = ThemedTk(theme="arc")
-        root.title("Mikan's Discord Auto Messenger v1.0.0")
-        root.geometry("1200x800")
-        print("ThemedTk created")
+        print("Creating GUI application...")
+        app = QApplication(sys.argv)
+        window = AutoMessengerGUI()
+        window.show()
+        print("GUI created")
         
-        app = AutoMessengerGUI(root)
-        print("AutoMessengerGUI created")
-        
-        print("Starting mainloop...")
-        print("You can minimize this console window - the GUI will continue running")
-        root.mainloop()
+        print("Starting event loop...")
+        sys.exit(app.exec())
         print("Application closed successfully")
         
     except ImportError as e:
@@ -105,7 +101,7 @@ def main():
         import traceback
         traceback.print_exc()
         print("Make sure all required packages are installed:")
-        print("pip install requests cryptography ttkthemes pytest aiohttp")
+        print("pip install -r requirements.txt")
         input("Press Enter to exit...")
         sys.exit(1)
     except Exception as e:

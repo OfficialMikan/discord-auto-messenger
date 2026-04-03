@@ -1,16 +1,21 @@
 ## File: discord_auto_messenger/auto_messenger/gui/app.py (complete corrected)
 """
-GUI Application for Discord Auto Messenger
+Modern GUI Application for Discord Auto Messenger using PyQt6
 """
-import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox, filedialog
-import threading
-import time
+import sys
 import json
-import os
+import time
 import random
+import os
 from typing import Dict, Any, List
-from ttkthemes import ThemedTk
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QLineEdit, QPushButton, QTextEdit, QListWidget, QComboBox,
+    QSpinBox, QCheckBox, QGroupBox, QTabWidget, QSplitter, QMessageBox,
+    QProgressBar, QStatusBar, QFrame, QDialog, QFormLayout
+)
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt
+from PyQt6.QtGui import QFont, QPalette, QColor
 
 from auto_messenger.core.sender import MessageSender
 from auto_messenger.core.config import ConfigManager
@@ -18,42 +23,88 @@ from auto_messenger.core.logger import get_logger
 from auto_messenger.utils.helpers import load_messages, validate_discord_id
 
 
-class AutoMessengerGUI:
-    """Main GUI Application"""
+class SenderWorker(QThread):
+    """Worker thread for message sending to avoid UI blocking"""
+    update_stats = pyqtSignal(dict)
+    update_log = pyqtSignal(str)
+    finished_cycle = pyqtSignal()
+
+    def __init__(self, sender, config, messages):
+        super().__init__()
+        self.sender = sender
+        self.config = config
+        self.messages = messages
+        self.running = False
+
+    def run(self):
+        self.running = True
+        delay = self.config.get("delay", 15)
+        cycle_sleep = self.config.get("cycle_sleep", 300)
+
+        while self.running:
+            cycle_start_time = time.time()
+            cycle_success_count = 0
+            total_attempts = 0
+
+            for item in self.messages:
+                if not self.running:
+                    break
+
+                for t in self.config.get("targets", []):
+                    if not self.running:
+                        break
+
+                    if hasattr(self.sender, 'is_channel_cooldown') and self.sender.is_channel_cooldown(t["id"]):
+                        self.update_log.emit(f"Skipping {t['id']} - in cooldown")
+                        continue
+
+                    name = self.sender.fetch_channel_name(t["id"])
+                    success = self.sender.send_message(t["id"], name, item, False, t.get("type", "channel"))
+
+                    total_attempts += 1
+                    if success:
+                        cycle_success_count += 1
+
+                    if self.running:
+                        time.sleep(max(1, random.uniform(delay * 0.7, delay * 1.4)))
+
+            if self.running:
+                cycle_duration = time.time() - cycle_start_time
+                success_rate = (cycle_success_count / total_attempts * 100) if total_attempts > 0 else 100
+
+                stats = {
+                    "cycles": "Cycles Completed: 1",
+                    "messages": f"Messages Sent: {cycle_success_count}",
+                    "success": f"Success Rate: {success_rate:.1f}%",
+                    "last_send": f"Last Send: {time.strftime('%H:%M:%S')}"
+                }
+                self.update_stats.emit(stats)
+                self.update_log.emit(f"✅ Cycle completed — {cycle_success_count} messages sent ({cycle_duration:.1f}s, {success_rate:.1f}% success)")
+                self.finished_cycle.emit()
+                time.sleep(max(30, cycle_sleep + random.randint(10, 60)))
+
+    def stop(self):
+        self.running = False
+
+
+class AutoMessengerGUI(QMainWindow):
+    """Modern GUI Application using PyQt6"""
     
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Mikan's Discord Auto Messenger v1.0.0")
-        self.root.geometry("1200x840")
-        
-        # Initialize components
+    def __init__(self):
+        super().__init__()
         self.config_manager = ConfigManager()
         self.config = self.config_manager.config
         self.logger = get_logger()
-        
-        # Show welcome ASCII art in terminal FIRST
-        self.show_welcome_ascii()
-        
-        # Initialize sender AFTER config is loaded
         self.sender = MessageSender(self.config)
-        
-        # State variables
-        self.name_cache = {}  # id → friendly name
-        self.running = False
-        self.thread = None
+        self.worker = None
+        self.name_cache = {}
+        self.messages = load_messages()
         self.total_sent = 0
         self.cycle_sent = 0
-        self.messages = load_messages()
-        self.prevent_auto_dry_run = False  # Flag to prevent auto dry-run when editing
-        
-        # Build UI
-        self.build_gui()
-        
-        # Refresh names AFTER GUI is built
-        self.root.after(100, self.refresh_names)  # Delay slightly to ensure GUI is ready
-        
-        # Apply theme
-        self.apply_theme()
+
+        self.init_ui()
+        self.load_config()
+        self.refresh_names()
 
     
     def show_welcome_ascii(self):
@@ -569,5 +620,252 @@ class AutoMessengerGUI:
 
 
 
-# Make sure the class is accessible when imported
-__all__ = ['AutoMessengerGUI']
+    def apply_modern_style(self):
+        """Apply modern dark theme styling"""
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #2b2b2b;
+                color: #ffffff;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #555;
+                border-radius: 5px;
+                margin-top: 1ex;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QPushButton {
+                background-color: #4a4a4a;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #5a5a5a;
+            }
+            QPushButton:pressed {
+                background-color: #3a3a3a;
+            }
+            QLineEdit, QTextEdit, QListWidget {
+                background-color: #3a3a3a;
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QCheckBox {
+                color: white;
+            }
+            QLabel {
+                color: white;
+            }
+            QProgressBar {
+                border: 2px solid #555;
+                border-radius: 5px;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                width: 10px;
+            }
+        """)
+
+    def load_config(self):
+        """Load configuration into UI"""
+        self.token_edit.setText(self.config.get("token", ""))
+        self.ua_edit.setText(self.config.get("user_agent", ""))
+
+    def save_token(self):
+        """Save token to config"""
+        token = self.token_edit.text().strip()
+        if not token:
+            QMessageBox.warning(self, "Missing Token", "Please enter a valid Discord token.")
+            return
+        self.config["token"] = token
+        self.config_manager.save_config(self.config)
+        self.sender.session.headers["Authorization"] = token
+        self.status_bar.showMessage("Token saved", 3000)
+
+    def save_user_agent(self):
+        """Save user-agent to config"""
+        ua = self.ua_edit.text().strip()
+        if not ua:
+            QMessageBox.warning(self, "Missing User-Agent", "Please enter a valid User-Agent string.")
+            return
+        self.config["user_agent"] = ua
+        self.config_manager.save_config(self.config)
+        self.sender.session.headers["User-Agent"] = ua
+        self.status_bar.showMessage("User-Agent saved", 3000)
+
+    def apply_settings(self):
+        """Apply settings to config"""
+        self.config["delay"] = self.delay_spin.value()
+        self.config["cycle_sleep"] = self.cycle_spin.value()
+        self.config_manager.save_config(self.config)
+        self.status_bar.showMessage("Settings applied", 3000)
+
+    def start_sender(self):
+        """Start the sender worker"""
+        if self.worker and self.worker.isRunning():
+            self.status_bar.showMessage("Already running", 3000)
+            return
+        if not self.config.get("token") or not self.config.get("targets"):
+            QMessageBox.warning(self, "Configuration Error", "Token or targets missing!")
+            return
+        if not self.messages:
+            QMessageBox.warning(self, "Configuration Error", "No messages in messages.txt!")
+            return
+
+        self.worker = SenderWorker(self.sender, self.config, self.messages)
+        self.worker.update_stats.connect(self.update_stats)
+        self.worker.update_log.connect(self.append_log)
+        self.worker.finished_cycle.connect(self.on_cycle_finished)
+        self.worker.start()
+        self.progress_bar.setRange(0, 0)  # Indeterminate
+        self.status_bar.showMessage("Started")
+
+    def stop_sender(self):
+        """Stop the sender worker"""
+        if self.worker:
+            self.worker.stop()
+            self.worker.wait()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.status_bar.showMessage("Stopped")
+
+    def clear_log(self):
+        """Clear the log"""
+        self.log_edit.clear()
+        self.status_bar.showMessage("Log cleared", 3000)
+
+    def add_target(self):
+        """Add a new target"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Target")
+        layout = QFormLayout(dialog)
+
+        type_combo = QComboBox()
+        type_combo.addItems(["channel", "dm"])
+        layout.addRow("Type:", type_combo)
+
+        id_edit = QLineEdit()
+        layout.addRow("ID:", id_edit)
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("Add")
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addRow(btn_layout)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            tid = id_edit.text().strip()
+            if not tid or not validate_discord_id(tid):
+                QMessageBox.warning(self, "Invalid ID", "Please enter a valid Discord ID (17-20 digits)")
+                return
+            self.config.setdefault("targets", []).append({"type": type_combo.currentText(), "id": tid})
+            self.config_manager.save_config(self.config)
+            self.refresh_names()
+
+    def remove_target(self):
+        """Remove selected target"""
+        current_row = self.targets_list.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "No Selection", "Select a target first")
+            return
+        if current_row < len(self.config.get("targets", [])):
+            del self.config["targets"][current_row]
+            self.config_manager.save_config(self.config)
+            self.refresh_names()
+
+    def refresh_names(self):
+        """Refresh target names"""
+        self.targets_list.clear()
+        self.name_cache.clear()
+
+        token = self.config.get("token")
+        if not token:
+            self.status_bar.showMessage("No token set", 3000)
+            return
+
+        for t in self.config.get("targets", []):
+            name = self.sender.fetch_channel_name(t["id"])
+            self.name_cache[t["id"]] = name
+            ttype = "Channel" if t["type"] == "channel" else "DM"
+            self.targets_list.addItem(f"[{ttype}] {t['id']} → {name}")
+
+    def format_messages(self):
+        """Format messages for display"""
+        result = []
+        for msg in self.messages:
+            if msg["type"] == "text":
+                result.append(msg["data"])
+            else:
+                result.append(json.dumps(msg["data"], indent=2))
+            result.append("")
+        return "\n".join(result)
+
+    def save_messages(self):
+        """Save messages from editor"""
+        content = self.messages_edit.toPlainText()
+        try:
+            with open("messages.txt", "w", encoding="utf-8") as f:
+                f.write(content)
+            self.messages = load_messages()
+            self.status_bar.showMessage("Messages saved", 3000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save messages: {e}")
+
+    def add_embed(self):
+        """Add embed to messages"""
+        title = self.embed_title.text().strip()
+        desc = self.embed_desc.toPlainText().strip()
+        color = self.embed_color.text().strip()
+
+        if not title:
+            QMessageBox.warning(self, "Missing Field", "Please enter a title for the embed")
+            return
+
+        embed_json = {
+            "title": title,
+            "description": desc if desc else " ",
+            "color": int(color) if color.isdigit() else 3447003
+        }
+
+        current = self.messages_edit.toPlainText()
+        if current:
+            current += "\n\n"
+        current += json.dumps(embed_json, indent=2)
+        self.messages_edit.setPlainText(current)
+
+    def update_stats(self, stats):
+        """Update stats labels"""
+        self.cycles_label.setText(stats.get("cycles", ""))
+        self.messages_label.setText(stats.get("messages", ""))
+        self.success_label.setText(stats.get("success", ""))
+        self.last_send_label.setText(stats.get("last_send", ""))
+
+    def append_log(self, message):
+        """Append message to log"""
+        self.log_edit.append(message)
+
+    def on_cycle_finished(self):
+        """Handle cycle finished"""
+        pass
+
+    def update_ui(self):
+        """Periodic UI update"""
+        self.stats_label.setText(f"Sent this cycle: {self.cycle_sent} | Total: {self.total_sent}")
+
+    def closeEvent(self, event):
+        """Handle window close"""
+        self.stop_sender()
+        event.accept()
