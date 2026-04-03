@@ -10,7 +10,7 @@ An automated messaging tool for Discord.
 
 ## Installation
 1. Download the latest release
-2. Run `DiscordAutoMessenger.exe` to start messaging
+2. Run `main.py` on your terminal to start messaging
 
 ## Security Note
 This tool is for educational purposes only. Use responsibly.
