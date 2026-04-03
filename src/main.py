@@ -32,9 +32,27 @@ def main():
     # Check if config exists
     config_path = os.path.join(base_dir, "config.json")
     if not os.path.exists(config_path):
-        print("❌ Config file not found!")
-        print("💡 Run DiscordTokenExtractor.exe first to set up your token")
-        print("   or manually create config.json with your Discord token")
+        print("❌ Config file not found. Creating config.json from template...")
+        template_path = os.path.join(base_dir, "config_template.json")
+        if os.path.exists(template_path):
+            try:
+                import shutil
+                shutil.copyfile(template_path, config_path)
+                print("✅ config.json created from template.")
+                print("Please edit config.json with your Discord token, targets, and settings.")
+            except Exception as e:
+                print(f"Failed to create config.json: {e}")
+        else:
+            print("Template not found. Create config.json manually with this content:")
+            print('{')
+            print('  "token": "YOUR_DISCORD_TOKEN_HERE",')
+            print('  "targets": [],')
+            print('  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",')
+            print('  "delay": 15,')
+            print('  "cycle_sleep": 300,')
+            print('  "theme": "arc"')
+            print('}')
+
         input("Press Enter to exit...")
         return
     
