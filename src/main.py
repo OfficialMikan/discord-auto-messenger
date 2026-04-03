@@ -24,10 +24,14 @@ def restore_console():
 
 def main():
     """Main entry point"""
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    os.chdir(base_dir)
+
     print("Starting Mikan's Discord Auto Messenger v1.0.0...")
     
     # Check if config exists
-    if not os.path.exists("config.json"):
+    config_path = os.path.join(base_dir, "config.json")
+    if not os.path.exists(config_path):
         print("❌ Config file not found!")
         print("💡 Run DiscordTokenExtractor.exe first to set up your token")
         print("   or manually create config.json with your Discord token")

@@ -26,16 +26,14 @@ def load_messages(messages_file: str = "messages.txt") -> List[Dict[str, Any]]:
             content = f.read().strip()
         blocks = [block.strip() for block in content.split("\n\n") if block.strip()]
         messages = []
-        for i, block in enumerate(blocks):
-            print(f"DEBUG: Block {i}: '{block}'")  # Debug line
+        for block in blocks:
             if block.startswith("{") and block.endswith("}"):
                 try:
                     messages.append({"type": "embed", "data": json.loads(block)})
-                except:
+                except json.JSONDecodeError:
                     messages.append({"type": "text", "data": block})
             else:
                 messages.append({"type": "text", "data": block})
-        print(f"DEBUG: Loaded {len(messages)} messages")  # Debug line
         return messages
     except Exception as e:
         print(f"Error loading messages: {e}")

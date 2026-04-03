@@ -3,6 +3,7 @@ Configuration Management
 """
 import json
 import os
+import sys
 from typing import Dict, Any
 from cryptography.fernet import Fernet
 from auto_messenger.core.logger import get_logger
@@ -12,8 +13,18 @@ class ConfigManager:
     """Handles configuration loading/saving with encryption"""
     
     def __init__(self, config_file: str = "config.json"):
-        self.config_file = config_file
-        self.key_file = "key.key"
+        app_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+
+        if not os.path.isabs(config_file):
+            self.config_file = os.path.join(app_dir, config_file)
+        else:
+            self.config_file = config_file
+
+        key_path = "key.key"
+        if not os.path.isabs(key_path):
+            key_path = os.path.join(app_dir, key_path)
+
+        self.key_file = key_path
         self.cipher_suite = None
         self.logger = get_logger()
         self.config = self.load_config()
@@ -21,6 +32,10 @@ class ConfigManager:
     def _initialize_encryption(self) -> Fernet:
         """Initialize encryption cipher"""
         try:
+            key_dir = os.path.dirname(self.key_file)
+            if key_dir and not os.path.exists(key_dir):
+                os.makedirs(key_dir, exist_ok=True)
+
             if os.path.exists(self.key_file):
                 with open(self.key_file, "rb") as key_file:
                     key = key_file.read()

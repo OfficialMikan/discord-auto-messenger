@@ -14,7 +14,7 @@ from ttkthemes import ThemedTk
 
 from auto_messenger.core.sender import MessageSender
 from auto_messenger.core.config import ConfigManager
-from auto_messenger.core.logger import Logger
+from auto_messenger.core.logger import get_logger
 from auto_messenger.utils.helpers import load_messages, validate_discord_id
 
 
@@ -24,12 +24,12 @@ class AutoMessengerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Mikan's Discord Auto Messenger v1.0.0")
-        self.root.geometry("1200x800")
+        self.root.geometry("1200x840")
         
         # Initialize components
         self.config_manager = ConfigManager()
         self.config = self.config_manager.config
-        self.logger = Logger()
+        self.logger = get_logger()
         
         # Show welcome ASCII art in terminal FIRST
         self.show_welcome_ascii()
@@ -110,12 +110,27 @@ class AutoMessengerGUI:
         menubar.add_cascade(label="View", menu=view_menu)
         view_menu.add_command(label="Toggle Dark Mode", command=self.toggle_theme)
         
+        # === Bot Configuration ===
+        config_panel = ttk.LabelFrame(self.root, text="Bot Configuration")
+        config_panel.pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Label(config_panel, text="Token:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.token_var = tk.StringVar(value=self.config.get("token", ""))
+        ttk.Entry(config_panel, textvariable=self.token_var, width=70, show="*").grid(row=0, column=1, padx=5, pady=2)
+        ttk.Button(config_panel, text="Save Token", command=self.update_token).grid(row=0, column=2, padx=5, pady=2)
+
+        ttk.Label(config_panel, text="User-Agent:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.user_agent_var = tk.StringVar(value=self.config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"))
+        ttk.Entry(config_panel, textvariable=self.user_agent_var, width=70).grid(row=1, column=1, padx=5, pady=2)
+        ttk.Button(config_panel, text="Save User-Agent", command=self.update_user_agent).grid(row=1, column=2, padx=5, pady=2)
+
         # === Top Control Panel ===
         top = ttk.Frame(self.root)
         top.pack(fill=tk.X, padx=10, pady=5)
         
         ttk.Button(top, text="▶ Start", command=self.start_sender).pack(side=tk.LEFT, padx=5)
         ttk.Button(top, text="⏹ Stop", command=self.stop_sender).pack(side=tk.LEFT, padx=5)
+        ttk.Button(top, text="🧹 Clear Logs", command=self.clear_log_view).pack(side=tk.LEFT, padx=5)
         
         self.dry_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(top, text="Dry Run (Preview Only)", variable=self.dry_var).pack(side=tk.LEFT, padx=20)
@@ -278,7 +293,34 @@ class AutoMessengerGUI:
         self.config["theme"] = new_theme
         self.config_manager.save_config(self.config)
         self.apply_theme()
-    
+
+    def update_token(self):
+        """Update bot token from GUI field"""
+        token = self.token_var.get().strip()
+        if not token:
+            messagebox.showwarning("Missing Token", "Please enter a valid Discord token.")
+            return
+        self.config["token"] = token
+        self.config_manager.save_config(self.config)
+        self.sender.session.headers["Authorization"] = token
+        self.logger.success("Token updated and saved.")
+
+    def update_user_agent(self):
+        """Update user-agent setting"""
+        user_agent = self.user_agent_var.get().strip()
+        if not user_agent:
+            messagebox.showwarning("Missing User-Agent", "Please enter a valid User-Agent string.")
+            return
+        self.config["user_agent"] = user_agent
+        self.config_manager.save_config(self.config)
+        self.sender.session.headers["User-Agent"] = user_agent
+        self.logger.success("User-Agent updated and saved.")
+
+    def clear_log_view(self):
+        """Clear GUI log text content"""
+        self.log_text.delete(1.0, tk.END)
+        self.logger.info("Log window cleared.")
+
     def _format_messages_for_editor(self) -> str:
         """Format messages for text editor"""
         result = []

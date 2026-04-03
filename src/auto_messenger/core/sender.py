@@ -7,7 +7,7 @@ import random
 import requests
 from datetime import datetime
 from typing import Dict, Any, Optional
-from auto_messenger.core.logger import Logger
+from auto_messenger.core.logger import get_logger
 from auto_messenger.utils.helpers import validate_discord_id
 
 
@@ -22,7 +22,7 @@ class MessageSender:
             "Content-Type": "application/json",
             "User-Agent": config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         })
-        self.logger = Logger()
+        self.logger = get_logger()
         self.cooldown_channels = {}  # channel_id -> cooldown_end_time
     
     def is_channel_cooldown(self, channel_id: str) -> bool:

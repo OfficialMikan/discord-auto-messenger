@@ -3,6 +3,7 @@ Unit Tests for Core Modules
 """
 import unittest
 import os
+import json
 import tempfile
 from auto_messenger.utils.helpers import validate_discord_id, load_messages
 
@@ -58,6 +59,30 @@ class TestHelpers(unittest.TestCase):
             self.assertEqual(messages[1]["data"], "Second message.")
         finally:
             os.unlink(temp_filename)
+
+
+class TestConfigManager(unittest.TestCase):
+    """Test configuration management"""
+
+    def test_config_manager_saves_and_loads_token(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, "config.json")
+            manager = __import__("auto_messenger.core.config", fromlist=["ConfigManager"]).ConfigManager(config_path)
+
+            self.assertIn("token", manager.config)
+            self.assertEqual(manager.config["token"], "")
+
+            manager.config["token"] = "testtoken123"
+            manager.save_config(manager.config)
+
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            self.assertNotEqual(data.get("encrypted_token"), "testtoken123")
+            self.assertNotIn("token", data)
+
+            new_manager = __import__("auto_messenger.core.config", fromlist=["ConfigManager"]).ConfigManager(config_path)
+            self.assertEqual(new_manager.config["token"], "testtoken123")
 
 
 if __name__ == '__main__':
