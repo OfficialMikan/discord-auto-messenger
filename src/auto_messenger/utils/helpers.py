@@ -21,8 +21,20 @@ def validate_discord_id(discord_id: str) -> bool:
 
 def load_messages(messages_file: str = "messages.txt") -> List[Dict[str, Any]]:
     """Load messages from file"""
+    import os
+    import sys
+    import shutil
+    
+    app_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    messages_file_path = os.path.join(app_dir, messages_file)
+    
+    if not os.path.exists(messages_file_path):
+        template_file = os.path.join(app_dir, "messages_template.txt")
+        if os.path.exists(template_file):
+            shutil.copy(template_file, messages_file_path)
+    
     try:
-        with open(messages_file, "r", encoding="utf-8") as f:
+        with open(messages_file_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
         blocks = [block.strip() for block in content.split("\n\n") if block.strip()]
         messages = []
