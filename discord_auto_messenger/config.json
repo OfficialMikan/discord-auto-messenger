@@ -1,0 +1,8 @@
+{
+    "token": "YOUR_DISCORD_TOKEN_HERE",
+    "targets": [],
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "delay": 15,
+    "cycle_sleep": 300,
+    "theme": "arc"
+}
